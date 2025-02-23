@@ -1,6 +1,5 @@
 package com.kaiburr.task1.demo.model;
 
-
 import java.util.Date;
 
 public class TaskExecution {
@@ -8,9 +7,10 @@ public class TaskExecution {
     private Date endTime;
     private String output;
 
-    // Constructors
+    // Default Constructor
     public TaskExecution() {}
 
+    // Parameterized Constructor
     public TaskExecution(Date startTime, Date endTime, String output) {
         this.startTime = startTime;
         this.endTime = endTime;

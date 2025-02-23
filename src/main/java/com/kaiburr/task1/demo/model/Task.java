@@ -1,22 +1,22 @@
 package com.kaiburr.task1.demo.model;
 
-
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import java.util.List;
 
-@Document(collection = "tasks")
+@Document(collection = "tasks") // Marks this as a MongoDB document
 public class Task {
     @Id
     private String id;
     private String name;
     private String owner;
     private String command;
-    private List<TaskExecution> taskExecutions;  // Reference TaskExecution
+    private List<TaskExecution> taskExecutions;
 
-    // Constructors
+    // Default Constructor
     public Task() {}
 
+    // Parameterized Constructor
     public Task(String id, String name, String owner, String command, List<TaskExecution> taskExecutions) {
         this.id = id;
         this.name = name;
