@@ -1,80 +1,94 @@
 package com.kaiburr.task1.demo.controller;
 
-import org.springframework.web.bind.annotation.*;
 import com.kaiburr.task1.demo.model.Task;
 import com.kaiburr.task1.demo.model.TaskExecution;
 import com.kaiburr.task1.demo.repository.TaskRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import java.util.List;
+import org.springframework.web.bind.annotation.*;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("/tasks")
 public class TaskController {
-
+    
     @Autowired
     private TaskRepository taskRepository;
 
-    // GET /tasks - Retrieve all tasks
     @GetMapping
     public List<Task> getAllTasks() {
         return taskRepository.findAll();
     }
 
-    // GET /tasks/{id} - Retrieve a task by ID
     @GetMapping("/{id}")
-    public ResponseEntity<Task> getTaskById(@PathVariable String id) {
-        Optional<Task> task = taskRepository.findById(id);
-        return task.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    public Task getTaskById(@PathVariable String id) {
+        return taskRepository.findById(id).orElse(null);
     }
 
-    // POST /tasks - Create a new task
     @PostMapping
     public Task createTask(@RequestBody Task task) {
         return taskRepository.save(task);
     }
 
-    // PUT /tasks/{id} - Update a task
     @PutMapping("/{id}")
-    public ResponseEntity<Task> updateTask(@PathVariable String id, @RequestBody Task updatedTask) {
-        if (!taskRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
+    public Task updateTask(@PathVariable String id, @RequestBody Task updatedTask) {
+        Optional<Task> taskOpt = taskRepository.findById(id);
+        if (taskOpt.isPresent()) {
+            Task task = taskOpt.get();
+            task.setName(updatedTask.getName());
+            task.setOwner(updatedTask.getOwner());
+            task.setCommand(updatedTask.getCommand());
+            return taskRepository.save(task);
         }
-        updatedTask.setId(id);
-        return ResponseEntity.ok(taskRepository.save(updatedTask));
+        return null;
     }
 
-    // DELETE /tasks/{id} - Delete a task
     @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteTask(@PathVariable String id) {
-        if (!taskRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
+    public String deleteTask(@PathVariable String id) {
         taskRepository.deleteById(id);
-        return ResponseEntity.ok("Task Deleted: " + id);
+        return "Task Deleted: " + id;
     }
 
-    // GET /tasks/search?name=xyz - Search tasks by name
     @GetMapping("/search")
-    public List<Task> searchTasksByName(@RequestParam String name) {
+    public List<Task> findTasksByName(@RequestParam String name) {
         return taskRepository.findByNameContainingIgnoreCase(name);
     }
 
-    // PUT /tasks/{id}/execute - Execute a task command and store execution details
     @PutMapping("/{id}/execute")
-    public ResponseEntity<String> executeTask(@PathVariable String id) {
-        Optional<Task> taskOptional = taskRepository.findById(id);
-        if (taskOptional.isEmpty()) {
-            return ResponseEntity.notFound().build();
+    public Task executeTask(@PathVariable String id) {
+        Optional<Task> taskOpt = taskRepository.findById(id);
+        if (taskOpt.isPresent()) {
+            Task task = taskOpt.get();
+            Date startTime = new Date();
+            String output = "";
+
+            try {
+                ProcessBuilder processBuilder = new ProcessBuilder();
+                processBuilder.command("bash", "-c", task.getCommand());
+                processBuilder.redirectErrorStream(true);
+                
+                Process process = processBuilder.start();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                StringBuilder outputBuilder = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    outputBuilder.append(line).append("\n");
+                }
+                process.waitFor();
+                output = outputBuilder.toString();
+            } catch (Exception e) {
+                output = "Error executing command: " + e.getMessage();
+            }
+
+            Date endTime = new Date();
+            TaskExecution execution = new TaskExecution(startTime, endTime, output);
+            task.addTaskExecution(execution);
+            return taskRepository.save(task);
         }
-
-        Task task = taskOptional.get();
-        TaskExecution execution = new TaskExecution(new Date(), new Date(), "Executed: " + task.getCommand());
-        task.getTaskExecutions().add(execution);
-
-        taskRepository.save(task);
-        return ResponseEntity.ok("Task Executed: " + task.getCommand());
+        return null;
     }
 }
